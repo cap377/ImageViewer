@@ -10,19 +10,28 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <assert.h>
+#include <fcntl.h>
 
 typedef struct {
   float Position[2];
   float TexCoord[2];
 } Vertex;
 
-// (-1, 1)  (1, 1)
-// (-1, -1) (1, -1)
+typedef struct Pixel{
+	unsigned char red;
+	unsigned char green;
+	unsigned char blue;
+} Pixel;
+
+int width, height, depth;
 
 Vertex vertexes[] = {
-  {{1, -1}, {0.99999, 0}},
-  {{1, 1},  {0.99999, 0.99999}},
-  {{-1, 1}, {0, 0.99999}}
+  {{1, -1}, {0.99999, 0.99999}},
+  {{1, 1},  {0.99999, 0}},
+  {{-1, 1}, {0, 0}},
+  {{-1, 1}, {0, 0}},
+  {{-1, -1}, {0, 0.99999}},
+  {{1, -1}, {0.99999, 0.99999}}
 };
 
 static const char* vertex_shader_text =
@@ -74,36 +83,131 @@ void glCompileShaderOrDie(GLuint shader) {
   }
 }
 
-// 4 x 4 image..
-unsigned char image[] = {
-  255, 0, 0, 255,
-  255, 0, 0, 255,
-  255, 0, 0, 255,
-  255, 0, 0, 255,
+FILE* escape_comments(FILE *input, int c){
+	if(c == '#'){
+		printf("Traversing comments...\n");
+		while(c != '\n'){
+			c = fgetc(input);
+		}
+		printf("Escaped comments\n");
+		c = fgetc(input);
+		input = escape_comments(input, c);
+	}
+	else{
+		fseek(input, -1, SEEK_CUR);
+	}
+	return input;
+}
 
-  0, 255, 0, 255,
-  0, 255, 0, 255,
-  0, 255, 0, 255,
-  0, 255, 0, 255,
+// reads in p3 file type
+void read_p3(FILE* input){
+	printf("Reading P3 file\n");
+  int c;
+	c = fgetc(input);
+	if(c != '\n'){
+		fprintf(stderr, "Incorrect .PPM file type\n");
+		exit(1);
+	}
+	c = fgetc(input);
+  input = escape_comments(input, c);
+	fscanf(input, "%d %d\n%d\n", &width, &height, &depth);
+	if(depth > 255){
+		printf("Error: Image not an 8 bit channel\n");
+		exit(1);
+	}
+  Pixel new;
+	Pixel *image = malloc(sizeof(Pixel)*width*height);
+	int count = 0;
+	while(!feof(input)){
+		fscanf(input, "%hhu ", &new.red);
+		fscanf(input, "%hhu ", &new.green);
+		fscanf(input, "%hhu ", &new.blue);
+		image[count] = new;
+		count++;
+	}
+	shading(image);
+}
 
-  0, 0, 255, 255,
-  0, 0, 255, 255,
-  0, 0, 255, 255,
-  0, 0, 255, 255,
+// reads in p6 file type
+void read_p6(FILE* input){
+	printf("Reading p6\n");
+	int c;
+		c = fgetc(input);
+		if(c != '\n'){
+			fprintf(stderr, "Incorrect .PPM file type\n");
+			exit(1);
+		}
+		c = fgetc(input);
+		input = escape_comments(input, c);
+		fscanf(input, "\n%d %d\n%d\n", &width, &height, &depth);
+		if(depth > 255){
+			printf("Error: Image not an 8 bit channel\n");
+			exit(1);
+		}
+		Pixel new;
+		Pixel *image = malloc(sizeof(Pixel)*width*height);
+		int count = 0;
+		while(!feof(input)){
+			fread(&new.red, 1, 1, input);
+			fread(&new.green, 1, 1, input);
+			fread(&new.blue, 1, 1, input);
+			image[count] = new;
+			count++;
+		}
+		shading(image);
+}
 
-  255, 0, 255, 255,
-  255, 0, 255, 255,
-  255, 0, 255, 255,
-  255, 0, 255, 255
-};
-
-int main(void)
+int main(int argc, char **argv)
 {
-    GLFWwindow* window;
-    GLuint vertex_buffer, vertex_shader, fragment_shader, program;
-    GLint mvp_location, vpos_location, vcol_location;
+    // reading file into image
+    FILE* input_fp;
+    int width, height, depth;
+    char c;
 
-    glfwSetErrorCallback(error_callback);
+    if (argc != 2){
+      printf("Incorrect number of arguments\n");
+      return 1;
+    }
+
+    input_fp = fopen(argv[1], "rb");
+    if(input_fp == NULL){
+		  printf("Error: File was not found\n");
+		  return 1;
+	  }
+
+  	// checking what the current file type is
+  	c = fgetc(input_fp);
+  	if(c != 80){
+  		printf("Incorrect file type: Expected .PPM file\n");
+  		return 1;
+  	}
+
+  	//getting magic number
+  	c = fgetc(input_fp);
+  	if(c != 51 && c != 54){
+  		printf("Incorrect file type: Expected P3 or P6 file\n");
+  		return 1;
+  	}
+
+    if(c == 51){
+  		read_p3(input_fp);
+  	}
+  	if(c == 54){
+  		read_p6(input_fp);
+  	}
+
+    fclose(input_fp);
+
+}
+
+int shading(Pixel *image){
+
+		GLFWwindow* window;
+		GLuint vertex_buffer, vertex_shader, fragment_shader, program;
+		GLint mvp_location, vpos_location, vcol_location;
+
+		glfwSetErrorCallback(error_callback);
+
 
     if (!glfwInit())
         exit(EXIT_FAILURE);
@@ -165,7 +269,7 @@ int main(void)
 			  2,
 			  GL_FLOAT,
 			  GL_FALSE,
-                          sizeof(Vertex),
+        sizeof(Vertex),
 			  (void*) 0);
 
     glEnableVertexAttribArray(texcoord_location);
@@ -173,11 +277,8 @@ int main(void)
 			  2,
 			  GL_FLOAT,
 			  GL_FALSE,
-                          sizeof(Vertex),
+        sizeof(Vertex),
 			  (void*) (sizeof(float) * 2));
-
-    int image_width = 4;
-    int image_height = 4;
 
     GLuint texID;
     glGenTextures(1, &texID);
@@ -185,7 +286,7 @@ int main(void)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, image_width, image_height, 0, GL_RGBA,
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA,
 		 GL_UNSIGNED_BYTE, image);
 
     glActiveTexture(GL_TEXTURE0);
@@ -211,7 +312,7 @@ int main(void)
 
         glUseProgram(program);
         glUniformMatrix4fv(mvp_location, 1, GL_FALSE, (const GLfloat*) mvp);
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
 
         glfwSwapBuffers(window);
         glfwPollEvents();
