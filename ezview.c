@@ -58,10 +58,41 @@ static void error_callback(int error, const char* description)
     fprintf(stderr, "Error: %s\n", description);
 }
 
+float rotate = 0;
+int pan_left = 0;
+int pan_right = 0;
+int scale = 1;
+int shear_x = 0;
+int shear_y = 0;
+
 static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
     if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
         glfwSetWindowShouldClose(window, GLFW_TRUE);
+    if (key == GLFW_KEY_UP && action == GLFW_PRESS)
+        // SCALE IN
+        scale += 1;
+    if (key == GLFW_KEY_DOWN && action == GLFW_PRESS)
+        // SCALE OUT
+        scale -= 1;
+    if (key == GLFW_KEY_LEFT && action == GLFW_PRESS)
+        // ROTATE LEFT
+        rotate -= 90*3.1415/180;
+    if (key == GLFW_KEY_RIGHT && action == GLFW_PRESS)
+        // ROTATE RIGHT
+        rotate += 90*3.1415/180;
+    if (key == GLFW_KEY_X && action == GLFW_PRESS)
+        // SHEAR X
+        shear_x += 1;
+    if (key == GLFW_KEY_Y && action == GLFW_PRESS)
+        // SHEAR Y
+        shear_y += 1;
+    if (key == GLFW_KEY_A && action == GLFW_PRESS)
+        // PAN LEFT
+        pan_left += 1;
+    if (key == GLFW_KEY_D && action == GLFW_PRESS)
+        // PAN RIGHT
+        pan_right += 1;
 }
 
 void glCompileShaderOrDie(GLuint shader) {
@@ -306,7 +337,8 @@ int shading(Pixel *image){
         glClear(GL_COLOR_BUFFER_BIT);
 
         mat4x4_identity(m);
-        mat4x4_rotate_Z(m, m, 0);//(float) glfwGetTime());
+        // rotation, taking in global variable rotate
+        mat4x4_rotate_Z(m, m, rotate);
         mat4x4_ortho(p, -ratio, ratio, -1.f, 1.f, 1.f, -1.f);
         mat4x4_mul(mvp, p, m);
 
