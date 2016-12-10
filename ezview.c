@@ -352,14 +352,18 @@ int shading(Pixel *image){
 
         // rotation, taking in global variable rotate
         mat4x4_identity(m);
-        mat4x4_mul(m, s, m);
         mat4x4_rotate_Z(m, m, rotate);
         mat4x4_ortho(p, -ratio, ratio, -1.f, 1.f, 1.f, -1.f);
-        mat4x4_mul(mvp, p, m);
+
 
         // translate, taking in global variables pan_x and pan_y
         mat4x4_translate_in_place(m, pan_x, pan_y, 1.0);
 
+        // applying scale matrix
+        mat4x4_mul(m, s, m);
+
+        // applying changes to image
+        mat4x4_mul(mvp, p, m);
 
         glUseProgram(program);
         glUniformMatrix4fv(mvp_location, 1, GL_FALSE, (const GLfloat*) mvp);
