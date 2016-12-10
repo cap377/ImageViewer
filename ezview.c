@@ -25,6 +25,7 @@ typedef struct Pixel{
 
 int width, height, depth;
 
+// added second triangle to complete image
 Vertex vertexes[] = {
   {{1, -1}, {0.99999, 0.99999}},
   {{1, 1},  {0.99999, 0}},
@@ -58,47 +59,68 @@ static void error_callback(int error, const char* description)
     fprintf(stderr, "Error: %s\n", description);
 }
 
+// global variables to hold affline transformations
 float rotate = 0;
-int pan_x = 0;
-int pan_y = 0;
+float pan_x = 0;
+float pan_y = 0;
 float scale = 1;
-int shear_x = 0;
-int shear_y = 0;
+float shear_x = 0;
+float shear_y = 0;
 
 static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
     if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
         glfwSetWindowShouldClose(window, GLFW_TRUE);
-    if (key == GLFW_KEY_UP && action == GLFW_PRESS)
+    if (key == GLFW_KEY_UP && action == GLFW_PRESS){
         // SCALE IN
         scale += .1;
-    if (key == GLFW_KEY_DOWN && action == GLFW_PRESS)
-        // SCALE OUT
-        scale -= .1;
-    if (key == GLFW_KEY_LEFT && action == GLFW_PRESS)
+        printf("Zoomed in\n");
+    }
+    if (key == GLFW_KEY_DOWN && action == GLFW_PRESS){
+      // SCALE OUT
+      scale -= .1;
+      printf("Zoomed out\n");
+    }
+    if (key == GLFW_KEY_LEFT && action == GLFW_PRESS){
         // ROTATE LEFT
         rotate -= 90*3.1415/180;
-    if (key == GLFW_KEY_RIGHT && action == GLFW_PRESS)
+        printf("Rotated counter clockwise\n");
+    }
+    if (key == GLFW_KEY_RIGHT && action == GLFW_PRESS){
         // ROTATE RIGHT
         rotate += 90*3.1415/180;
-    if (key == GLFW_KEY_X && action == GLFW_PRESS)
+        printf("Rotated clockwise\n");
+    }
+    if (key == GLFW_KEY_X && action == GLFW_PRESS){
         // SHEAR X
-        shear_x += 1;
-    if (key == GLFW_KEY_Y && action == GLFW_PRESS)
+        shear_x += .1;
+        printf("Sheared x-axis\n");
+    }
+    if (key == GLFW_KEY_Y && action == GLFW_PRESS){
         // SHEAR Y
-        shear_y += 1;
-    if (key == GLFW_KEY_A && action == GLFW_PRESS)
+        shear_y += .1;
+        printf("Sheared y-axis\n");
+    }
+    if (key == GLFW_KEY_A && action == GLFW_PRESS){
         // PAN LEFT
-        pan_x -= 1;
-    if (key == GLFW_KEY_D && action == GLFW_PRESS)
+        pan_x -= .1;
+        printf("Translated left\n");
+    }
+    if (key == GLFW_KEY_D && action == GLFW_PRESS){
         // PAN RIGHT
-        pan_x += 1;
-    if (key == GLFW_KEY_W && action == GLFW_PRESS)
+        pan_x += .1;
+        printf("Translated right\n");
+    }
+    if (key == GLFW_KEY_W && action == GLFW_PRESS){
         // PAN UP
-        pan_y += 1;
-    if (key == GLFW_KEY_S && action == GLFW_PRESS)
+        pan_y += .1;
+        printf("Translated up\n");
+    }
+    if (key == GLFW_KEY_S && action == GLFW_PRESS){
         // PAN DOWN
-        pan_y -= 1;
+        pan_y -= .1;
+        printf("Translated down\n");
+    }
 }
 
 void glCompileShaderOrDie(GLuint shader) {
@@ -138,7 +160,7 @@ FILE* escape_comments(FILE *input, int c){
 
 // reads in p3 file type
 void read_p3(FILE* input){
-	printf("Reading P3 file\n");
+	printf("Renduring P3 file\n");
   int c;
 	c = fgetc(input);
 	if(c != '\n'){
@@ -162,12 +184,13 @@ void read_p3(FILE* input){
 		image[count] = new;
 		count++;
 	}
-	shading(image);
+  fclose(input);
+	renduring(image);
 }
 
 // reads in p6 file type
 void read_p6(FILE* input){
-	printf("Reading p6\n");
+	printf("Renduring P6 file\n");
 	int c;
 		c = fgetc(input);
 		if(c != '\n'){
@@ -191,7 +214,8 @@ void read_p6(FILE* input){
 			image[count] = new;
 			count++;
 		}
-		shading(image);
+    fclose(input);
+		renduring(image);
 }
 
 int main(int argc, char **argv)
@@ -226,18 +250,16 @@ int main(int argc, char **argv)
   		return 1;
   	}
 
+    // sends file pointer to function depending on magic number
     if(c == 51){
   		read_p3(input_fp);
   	}
   	if(c == 54){
   		read_p6(input_fp);
   	}
-
-    fclose(input_fp);
-
 }
 
-int shading(Pixel *image){
+int renduring(Pixel *image){
 
 		GLFWwindow* window;
 		GLuint vertex_buffer, vertex_shader, fragment_shader, program;
@@ -342,10 +364,18 @@ int shading(Pixel *image){
         glViewport(0, 0, width, height);
         glClear(GL_COLOR_BUFFER_BIT);
 
-        // scale, taking in global variable scale
+        // scale matrix, taking in global variable scale
         mat4x4 s = {
             scale, 0.0f, 0.0f, 0.0f,
             0.0, scale, 0.0f, 0.0f,
+            0.0f, 0.0f, 1.0f, 0.0f,
+            0.0f, 0.0f, 0.0f, 1.0f
+        };
+
+        // shear matrix, taking in global variables
+        mat4x4 sh = {
+            1.0f, shear_y, 0.0f, 0.0f,
+            shear_x, 1.0f, 0.0f, 0.0f,
             0.0f, 0.0f, 1.0f, 0.0f,
             0.0f, 0.0f, 0.0f, 1.0f
         };
@@ -355,12 +385,14 @@ int shading(Pixel *image){
         mat4x4_rotate_Z(m, m, rotate);
         mat4x4_ortho(p, -ratio, ratio, -1.f, 1.f, 1.f, -1.f);
 
-
         // translate, taking in global variables pan_x and pan_y
         mat4x4_translate_in_place(m, pan_x, pan_y, 1.0);
 
         // applying scale matrix
         mat4x4_mul(m, s, m);
+
+        // applying shear matrix
+        mat4x4_mul(m, sh, m);
 
         // applying changes to image
         mat4x4_mul(mvp, p, m);
@@ -372,6 +404,8 @@ int shading(Pixel *image){
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
+
+    printf("Closing program...\n");
 
     glfwDestroyWindow(window);
 
