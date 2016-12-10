@@ -59,9 +59,9 @@ static void error_callback(int error, const char* description)
 }
 
 float rotate = 0;
-int pan_left = 0;
-int pan_right = 0;
-int scale = 1;
+int pan_x = 0;
+int pan_y = 0;
+float scale = 1;
 int shear_x = 0;
 int shear_y = 0;
 
@@ -71,10 +71,10 @@ static void key_callback(GLFWwindow* window, int key, int scancode, int action, 
         glfwSetWindowShouldClose(window, GLFW_TRUE);
     if (key == GLFW_KEY_UP && action == GLFW_PRESS)
         // SCALE IN
-        scale += 1;
+        scale += .1;
     if (key == GLFW_KEY_DOWN && action == GLFW_PRESS)
         // SCALE OUT
-        scale -= 1;
+        scale -= .1;
     if (key == GLFW_KEY_LEFT && action == GLFW_PRESS)
         // ROTATE LEFT
         rotate -= 90*3.1415/180;
@@ -89,10 +89,16 @@ static void key_callback(GLFWwindow* window, int key, int scancode, int action, 
         shear_y += 1;
     if (key == GLFW_KEY_A && action == GLFW_PRESS)
         // PAN LEFT
-        pan_left += 1;
+        pan_x -= 1;
     if (key == GLFW_KEY_D && action == GLFW_PRESS)
         // PAN RIGHT
-        pan_right += 1;
+        pan_x += 1;
+    if (key == GLFW_KEY_W && action == GLFW_PRESS)
+        // PAN UP
+        pan_y += 1;
+    if (key == GLFW_KEY_S && action == GLFW_PRESS)
+        // PAN DOWN
+        pan_y -= 1;
 }
 
 void glCompileShaderOrDie(GLuint shader) {
@@ -336,11 +342,24 @@ int shading(Pixel *image){
         glViewport(0, 0, width, height);
         glClear(GL_COLOR_BUFFER_BIT);
 
-        mat4x4_identity(m);
+        // scale, taking in global variable scale
+        mat4x4 s = {
+            scale, 0.0f, 0.0f, 0.0f,
+            0.0, scale, 0.0f, 0.0f,
+            0.0f, 0.0f, 1.0f, 0.0f,
+            0.0f, 0.0f, 0.0f, 1.0f
+        };
+
         // rotation, taking in global variable rotate
+        mat4x4_identity(m);
+        mat4x4_mul(m, s, m);
         mat4x4_rotate_Z(m, m, rotate);
         mat4x4_ortho(p, -ratio, ratio, -1.f, 1.f, 1.f, -1.f);
         mat4x4_mul(mvp, p, m);
+
+        // translate, taking in global variables pan_x and pan_y
+        mat4x4_translate_in_place(m, pan_x, pan_y, 1.0);
+
 
         glUseProgram(program);
         glUniformMatrix4fv(mvp_location, 1, GL_FALSE, (const GLfloat*) mvp);
